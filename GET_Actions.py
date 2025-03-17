@@ -1,5 +1,5 @@
 from http.server import BaseHTTPRequestHandler
-from utils import Basic_GET_Response
+from response_managers import Basic_GET_Response
 
 def home(handler: BaseHTTPRequestHandler, url_data, url_variables):
     host = handler.headers["Host"]

@@ -2,7 +2,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from requests.exceptions import HTTPError
 from typing import Callable
 from GET_Actions import display, home, retrn
-from utils import Basic_GET_Response, get_complete_path, get_url_variables, url_to_dict, is_var_url
+from response_managers import Basic_GET_Response
+from utils import get_complete_path, get_url_variables, url_to_dict, is_var_url
 
 class RequestHandler (BaseHTTPRequestHandler):
     get_callers: dict[str, Callable] = {}
@@ -53,8 +54,6 @@ class RequestHandler (BaseHTTPRequestHandler):
                 self.path = res.path
             elif res.status_code == 404:
                 print("404 NOT_FOUND")
-                self.path = "/not_found.html"
-                res.status_code = 303 # redirect
 
             print(get_complete_path(self))
             self.send_response(res.status_code)
@@ -71,6 +70,8 @@ print_exp = lambda e, req: print(f"There was an exception while trying to procce
 class Server ():
     def __init__(self, address: str, port: int):
         self.session = HTTPServer((address, port), RequestHandler)
+        self.address = address
+        self.port = port
 
     def CALL (self, path: str, callback: Callable, caller_lib: dict[str, Callable]):
         if callback and path:
@@ -91,17 +92,17 @@ class Server ():
         
 
     def start(self):
+        print ("Starting Server...")
         if self.session:
+            print(f"Session started at http://{self.address}:{self.port}")
             with self.session as Http_Server:
                 Http_Server.serve_forever()
+        else:
+            print("There's no session available.")
 
 my_server = Server("localhost", 8080)
 
 my_server.GET("/", home)
 my_server.GET("/return.html", retrn)
 my_server.GET("/[ID]/display.html", display)
-
-# ADD TOMORROW: /something/[ID]/display.html
-
-print("Starting Server...")
 my_server.start()
