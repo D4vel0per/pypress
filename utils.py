@@ -2,17 +2,13 @@ from urllib.parse import parse_qs
 from http.server import BaseHTTPRequestHandler
 import re
 
-def url_to_dict(path: str):
+def get_url_query(path: str):
     path_arr = path.split("?")
-    page = path_arr[0]
     query = {}
     if len(path_arr) > 1:
         query = parse_qs(path_arr[1])
 
-    return {
-        "page": page,
-        "query": query
-    }
+    return query
 
 separate_path = lambda path: list(filter(lambda a: bool(a), path.split("/")))
 
@@ -30,6 +26,8 @@ def get_base_path (actual_path: str, url_variables: dict[str, str]):
     base_path = actual_path + ""
     for key, value in url_variables.items():
         base_path = actual_path.replace(value, key)
+
+    base_path = base_path.split("?")[0] # Just in case it has a query
 
     return base_path
 

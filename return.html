@@ -4,5 +4,58 @@
     <body>
         <h1>HOLA</h1>
         <a href="http://localhost:8080/abcdef142536/display.html">Te puedes desplazar a una pagina usando una ID: abcdef142536</a>
+        <div>
+            <ul id="list"></ul>
+        </div>
+        <div>
+            <form action="/set">
+                <label for="random">
+                    Write a random number:
+                    <input type="number" placeholder="Random Number" id="random" name="random" required>
+                    <button type="submit">Submit</button>
+                </label>
+            </form>
+        </div>
+
+        <script type="text/javascript">
+            
+
+            let xhttp = new XMLHttpRequest()
+
+            const are_equal = (arr1, arr2) => {
+                let l = arr1.length === arr2.length; // Goes for length
+                let e = arr1.every(e => arr2.indexOf(e) !== -1); // Goes for inner elements
+
+                return l && e
+            }
+
+            const toHtmlList = (arr) => arr.map(e => `<li>${JSON.stringify(e)}</li>`)
+
+            const PAGE = ((doc) => {
+                let list = []
+                return {
+                    set_data (array) {
+                        if (!are_equal(list, array)) {
+                            list = array
+                            doc.querySelector("#list").innerHTML = toHtmlList(list)
+                        }
+                    }
+                }
+
+            })(this.document)
+
+            xhttp.onreadystatechange = function () {
+                if (this.readyState === xhttp.DONE && this.status === 200) {
+                    let jsonList = JSON.parse(xhttp.responseText) // Format: "[{'a': 1}, ...]"
+                    console.log(jsonList)
+                    PAGE.set_data(jsonList)
+                }
+            }
+
+            
+            xhttp.open("GET", "set", true)
+            xhttp.send()
+            
+        </script>
     </body>
 </html>
