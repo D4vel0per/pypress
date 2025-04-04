@@ -1,32 +1,56 @@
 <!DOCTYPE html>
 <html>
     <head></head>
-    <body>
+    <body onload="get_data()">
         <h1>HOLA</h1>
         <a href="http://localhost:8080/abcdef142536/display.html">Te puedes desplazar a una pagina usando una ID: abcdef142536</a>
         <div>
             <ul id="list"></ul>
         </div>
         <div>
-            <form action="/set">
-                <label for="random">
-                    Write a random number:
-                    <input type="number" placeholder="Random Number" id="random" name="random" required>
-                    <button type="submit">Submit</button>
+            <form action="#">
+                <label for="name">
+                    <input type="text" placeholder="Name" id="name" required>
                 </label>
+                <label for="age">
+                    <input type="number" placeholder="Age" id="age" required>
+                </label>
+                <label for="description">
+                    <input type="text" placeholder="Description" id="description" required>
+                </label>
+                <button type="button" onclick="postPerson()">Submit</button>
             </form>
         </div>
 
         <script type="text/javascript">
-            
-
-            let xhttp = new XMLHttpRequest()
 
             const are_equal = (arr1, arr2) => {
                 let l = arr1.length === arr2.length; // Goes for length
                 let e = arr1.every(e => arr2.indexOf(e) !== -1); // Goes for inner elements
 
                 return l && e
+            }
+
+            const getInputText = (inputId) => {
+                return document.querySelector(`#${inputId}`).value
+            } 
+
+            const postPerson = () => {
+                let xhr = new XMLHttpRequest()
+                let body = {
+                    name: getInputText("name"),
+                    age: getInputText("age"),
+                    description: getInputText("description")
+                }
+                xhr.open("POST", "set")
+                xhr.onload = () => console.log("POST REQUEST SUCCESSFUL")
+                xhr.setRequestHeader('Content-type', 'application/json');
+                xhr.send(JSON.stringify(body))
+                xhr.onreadystatechange = function () {
+                    if (this.readyState === this.DONE && this.status === 201) {
+                        get_data()
+                    }
+                }
             }
 
             const toHtmlList = (arr) => arr.map(e => `<li>${JSON.stringify(e)}</li>`)
@@ -44,17 +68,18 @@
 
             })(this.document)
 
-            xhttp.onreadystatechange = function () {
-                if (this.readyState === xhttp.DONE && this.status === 200) {
-                    let jsonList = JSON.parse(xhttp.responseText) // Format: "[{'a': 1}, ...]"
-                    console.log(jsonList)
-                    PAGE.set_data(jsonList)
+            const get_data = () => {
+                let xhr = new XMLHttpRequest()
+                xhr.onload = function () {
+                    if (this.status === 200) {
+                        let jsonList = JSON.parse(this.responseText) // Format: "[{'a': 1}, ...]"
+                        console.log(jsonList)
+                        PAGE.set_data(jsonList)
+                    }
                 }
+                xhr.open("GET", "set", true)
+                xhr.send()
             }
-
-            
-            xhttp.open("GET", "set", true)
-            xhttp.send()
             
         </script>
     </body>

@@ -3,6 +3,7 @@ import json
 from requests.exceptions import HTTPError
 from typing import Callable
 from GET_Actions import display, home, retrn, show_set
+from POST_Actions import post_person
 from response_managers import HTTP_CODES, Basic_GET_Response, Basic_POST_Response, Set_DB
 from utils import get_complete_path, get_url_variables, get_url_query, is_var_url
 
@@ -29,7 +30,7 @@ class RequestHandler (BaseHTTPRequestHandler):
             {
                 "name": "Omar",
                 "age": 18,
-                "Description": "Your Creator."
+                "description": "Your Creator."
             }
         ))
         POST_caller = lambda a, b, c: Basic_POST_Response(None, self, self.path, default_content)
@@ -38,9 +39,13 @@ class RequestHandler (BaseHTTPRequestHandler):
 
         if base_path:
             POST_caller = self.post_callers[base_path]
+
+        print("Also works")
         
         try:
-            content = self.rfile.read()
+            print("Inside try, content length is", self.headers["Content-Length"])
+            c_length = int(self.headers["Content-Length"])
+            content = self.rfile.read(c_length)
 
             res: Basic_POST_Response = POST_caller(self, content)
             self.send_response(res.status_code)
@@ -136,4 +141,5 @@ my_server.GET("/", home)
 my_server.GET("/return.html", retrn)
 my_server.GET("/[ID]/display.html", display)
 my_server.GET("/set", show_set)
+my_server.POST("/set", post_person)
 my_server.start()

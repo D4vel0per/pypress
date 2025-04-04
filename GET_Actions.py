@@ -1,6 +1,7 @@
 from http.server import BaseHTTPRequestHandler
 from typing import Any
 from response_managers import Basic_GET_Response, HTTP_CODES, GET_mode
+from utils import try_int
 
 def home(handler: BaseHTTPRequestHandler, query, url_variables):
     new_path = handler.path + "return.html"
@@ -16,15 +17,6 @@ def retrn(handler: BaseHTTPRequestHandler, query, url_variables):
 def display(handler: BaseHTTPRequestHandler, query, url_variables):
     res = Basic_GET_Response(HTTP_CODES.SUCCESS, handler, handler.path, url_variables)
     return res
-
-def try_int (value: Any):
-    result = None
-    try:
-        result = int(value)
-    except:
-        result = value
-    
-    return result
 
 def show_set(handler: BaseHTTPRequestHandler, query: dict[str, Any], url_variables):
     last_query = {}

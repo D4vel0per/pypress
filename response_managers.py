@@ -1,6 +1,7 @@
 from http.server import BaseHTTPRequestHandler
 from typing import Any
 
+from utils import try_int
 from utils import get_base_path, get_complete_path
 
 from mongo_connection import get_collection
@@ -85,14 +86,12 @@ class Basic_GET_Response ():
         
 class Set_DB:
     def __init__(self, content: bytes|str):
-        self.name = "John Doe"
-        self.age = 25
-        self.description = "I'm an NPC"
         self.id = ObjectId()
         try:
-            json_data: dict[str, str] = json.loads(content)
+            json_data: dict[str, Any] = json.loads(content)
+
             self.name = json_data["name"]
-            self.age = json_data["age"]
+            self.age = try_int(json_data["age"])
             self.description = json_data["description"]
             
             if "id" in json_data:
@@ -102,15 +101,15 @@ class Set_DB:
                     self.id = id
 
         except Exception as e:
-            print("There was a problem at Set_DB:", e)
+            print("There was a problem at Set_DB:", e.with_traceback(None))
 
     name: str
     age: int
     description: str
     id: ObjectId
 
-def search_by_id (collection: Collection, id: ObjectId) -> Set_DB|None:
-    result: Set_DB|None = collection.find_one({ id: id })
+def search_by_name (collection: Collection, name: str) -> Set_DB|None:
+    result: Set_DB|None = collection.find_one({ name: name })
     return result
         
 class Basic_POST_Response ():
@@ -124,11 +123,19 @@ class Basic_POST_Response ():
         new_path = handler.path if new_path is None else new_path
         self.status_code = status_code or 400
 
-        set_col = get_collection("Set")
+        set_col = get_collection("set")
 
-        doc = search_by_id(set_col, body.id)
+        doc = search_by_name(set_col, body.name)
 
         if doc is not None:
-            print("Update { ", doc.id, f", {str(doc.random)}" + "}")
+            print("Update ", doc.name, f", {str(doc.name)}")
+            set_col
         else:
-            print("Create something: ", body.random)
+            print("Create something: ", body.name)
+            
+            set_col.insert_one({
+                'name': body.name,
+                'age': body.age,
+                'description': body.description,
+                '_id': body.id
+            })

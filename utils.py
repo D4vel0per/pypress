@@ -1,3 +1,4 @@
+from typing import Any
 from urllib.parse import parse_qs
 from http.server import BaseHTTPRequestHandler
 import re
@@ -11,6 +12,15 @@ def get_url_query(path: str):
     return query
 
 separate_path = lambda path: list(filter(lambda a: bool(a), path.split("/")))
+
+def try_int (value: Any):
+    result = None
+    try:
+        result = int(value)
+    except:
+        result = value
+    
+    return result
 
 def is_var_url (base_path:str, actual_path:str):
     variables = get_url_variables(base_path, actual_path)
@@ -48,3 +58,13 @@ def get_complete_path(handler: BaseHTTPRequestHandler):
     host = handler.headers["Host"]
     base = f"http://{host}{handler.path}"
     return base
+
+def class_to_dict (clss):
+    annotations = clss.__annotations__
+    cls_dict = {}
+    
+    for (key, value_cls) in annotations.items():
+        value = clss.__dict__[key] if key in clss.__dict__ else None
+        cls_dict[key] = (value, value_cls)
+    
+    return cls_dict
