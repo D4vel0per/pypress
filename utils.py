@@ -39,7 +39,7 @@ def get_base_path (actual_path: str, url_variables: dict[str, str]):
 
     base_path = base_path.split("?")[0] # Just in case it has a query
 
-    return base_path
+    return base_path.removeprefix("/")
 
 def get_url_variables(base_path:str, actual_path:str):
     keys = separate_path(base_path)
@@ -59,12 +59,18 @@ def get_complete_path(handler: BaseHTTPRequestHandler):
     base = f"http://{host}{handler.path}"
     return base
 
-def class_to_dict (clss):
+def class_to_dict (clss, obj):
     annotations = clss.__annotations__
     cls_dict = {}
+    print("Inside class_to_dict")
+    print("Annotations: ", clss.__annotations__)
     
     for (key, value_cls) in annotations.items():
-        value = clss.__dict__[key] if key in clss.__dict__ else None
-        cls_dict[key] = (value, value_cls)
+        print (key, value_cls)
+        if key in obj:
+            try:
+                cls_dict[key] = value_cls(obj[key])
+            except:
+                cls_dict[key] = None
     
     return cls_dict

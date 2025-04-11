@@ -10,6 +10,8 @@ def get_collection(name: str):
         client.admin.command("ping")
         print("Pinged to the client, the connection was successful!")
 
+        name = name.removeprefix("/")
+
         res = client["PyPress"].get_collection(name) if name else None
 
         return res
