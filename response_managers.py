@@ -14,9 +14,12 @@ import json
 from bson import ObjectId
 from pymongo.collection import Collection
 
-def insert_to_db(path:str, data: dict[str, Any]):
-    collection: Collection = get_collection(path)
-    collection.insert_one(data)
+def insert_to_db(collection:str, data: dict|list):
+    collection: Collection = get_collection(collection)
+    if type(data) is list:
+        collection.insert_many(data)
+    else:
+        collection.insert_one(data)
 
 def replace_to_db(path:str, query:dict[str, Any], data: dict[str, Any]):
     collection: Collection = get_collection(path)
@@ -85,7 +88,7 @@ class Basic_GET_Response ():
             case HTTP_CODES.INTERNAL_SERVER_ERROR:
                 print_status("500 INTERNAL SERVER ERROR")
                 # I'll do this later (I won't)
-        
+      
 class Set_DB:
     def __init__(self, content: bytes|str, model: BaseModel):
         self.id = ObjectId()
@@ -115,37 +118,58 @@ class Set_DB:
         except Exception as e:
             print("There was a problem at Set_DB:", e.with_traceback(None))
     id: ObjectId
+
+def checkModel (model: Any, obj:dict):
+    class PassModel (BaseModel, model):
+        pass
+
+    try:
+        PassModel.model_validate(obj)
+        return True
+    except:
+        return False
         
-class Basic_POST_Response ():
+class Basic_POST_Response (): # CREATE
     def __init__(
             self, 
-            status_code:int|None, 
-            handler:BaseHTTPRequestHandler, 
-            new_path:str|None, 
-            body: Set_DB,
-            url_variables: dict[str, str]={}
+            collection_name:str,
+            body: dict|list,
+            model: Any
         ):
-        new_path = handler.path if new_path is None else new_path
-        self.status_code = status_code or 400
+        self.status_code = HTTP_CODES.BAD_REQUEST
+        self.body = None
 
-        open_path = get_base_path(handler.path, url_variables)
-
-        print("POST")
+        print("POST to " + collection_name)
         print(body)
 
-        query = {}
+        collection: Collection = get_collection(collection_name)
 
-        search_key = handler.search_keys["/" + open_path]
+        self.collection = collection
 
-        query[search_key] = body.data[search_key]
+        self.valid_model = False
 
-        doc = get_from_db(open_path, query)
-
-        if doc is not None:
-            print("Updating ", doc)
-            replace_to_db(open_path, query, body.data)
-
-        else:
-            print("Create something: ", body.data)
+        if collection is not None:
+            if type(body) is list:
+                self.valid_model = checkModel(model, body[0]) if len(body) else False
+                
+            else:
+                self.valid_model = checkModel(model, body)
             
-            insert_to_db(open_path, body.data)
+            if self.valid_model:
+                try:
+                    insert_to_db(collection_name, body)
+                    self.status_code = HTTP_CODES.CREATED
+                except Exception as e:
+                    print("Internal Server Error on Post: ", e.with_traceback())
+                    self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
+            else:
+                self.status_code = HTTP_CODES.BAD_REQUEST
+        else:
+            self.status_code = HTTP_CODES.NOT_FOUND
+
+        if self.status_code == HTTP_CODES.CREATED:
+            self.body = body
+
+
+# PUT -> CREATE OR REPLACE
+# PATCH -> UPDATE
