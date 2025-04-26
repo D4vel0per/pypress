@@ -128,9 +128,10 @@ def checkModel (model: Any, data:dict|list[dict]):
         
 class Basic_POST_Response (): # CREATE
     status_code: HTTP_CODES
-    body: dict|list = None
-    collection: Collection = None
-    valid_model: bool = False
+    body: dict|list
+    collection_name: str
+    valid_model: bool
+    content: str
 
     def __init__(
             self, 
@@ -138,36 +139,28 @@ class Basic_POST_Response (): # CREATE
             body: dict|list,
             model: Any
         ):
-        self.status_code = HTTP_CODES.BAD_REQUEST
-        self.body = None
+        self.valid_model = checkModel(model, body)
+        self.status_code = HTTP_CODES.SUCCESS if self.valid_model else HTTP_CODES.BAD_REQUEST
+        self.content = b""
 
-        print("POST to " + collection_name)
-        print(body)
-
-        collection: Collection = get_collection(collection_name)
-
-        self.collection = collection
-
-        self.valid_model = False
-
-        if collection is not None:
-            
-            self.valid_model = checkModel(model, body)
-            
-            if self.valid_model:
-                try:
-                    insert_to_db(collection_name, body)
-                    self.status_code = HTTP_CODES.CREATED
-                except Exception as e:
-                    print("Internal Server Error on Post: ", e.with_traceback())
-                    self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
-            else:
-                self.status_code = HTTP_CODES.BAD_REQUEST
-        else:
+        if get_collection(collection_name) is None:
             self.status_code = HTTP_CODES.NOT_FOUND
+        else:
+            self.collection_name = collection_name
+            self.body = body if self.valid_model else None
 
-        if self.status_code == HTTP_CODES.CREATED:
-            self.body = body
+    def send(self, html:str = ""):
+        if self.valid_model:
+            self.content = html
+            try:
+                insert_to_db(self.collection_name, self.body)
+                self.status_code = HTTP_CODES.CREATED
+            except Exception as e:
+                print("Internal Server Error on Post: ", e.with_traceback())
+                self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
+        else:
+            self.status_code = HTTP_CODES.BAD_REQUEST
+
 
 class Basic_PUT_Response ():
     status_code: HTTP_CODES

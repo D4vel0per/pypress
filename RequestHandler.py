@@ -1,4 +1,4 @@
-from http.server import BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler
 from typing import Any, Callable
 
 from requests import HTTPError
@@ -34,7 +34,7 @@ class BodyUtilities:
 class Basic_Response:
     status_code: HTTP_CODES = HTTP_CODES.SUCCESS
     
-class RequestHandler (BaseHTTPRequestHandler):
+class RequestHandler (SimpleHTTPRequestHandler):
     get_callers: dict[str, Callable] = {}
     post_callers: dict[str, Callable] = {}
     put_callers: dict[str, Callable] = {}
@@ -50,7 +50,10 @@ class RequestHandler (BaseHTTPRequestHandler):
         return content
     
     def write_content (self, content=bytes):
-        self.wfile.write(content)
+        try:
+            self.wfile.write(content)
+        except Exception as e:
+            print("Error while writing data:", e)
     
     def get_utilities (self, callers: dict[str, Callable]):
         caller: Callable # Luego se hará una clase general
@@ -65,7 +68,7 @@ class RequestHandler (BaseHTTPRequestHandler):
 
     def send_res (self, res):
         try:
-            self.send_response(res.status_code)
+            self.send_response(res.status_code, "CONTENT")
         except HTTPError as e:
             self.send_error(e.response.status_code, e.response.reason)
 
@@ -110,37 +113,6 @@ class RequestHandler (BaseHTTPRequestHandler):
             self.send_res(res)
             self.write_content(res.content)
 
-        '''
-        POST_caller: Callable[[BaseHTTPRequestHandler, bytes, dict[str, Any]], Basic_POST_Response]
-
-        base_path = find_base_for_caller(self.path, self.post_callers)
-        url_variables = {}
-
-        if base_path:
-            POST_caller = self.post_callers[base_path]
-            url_variables = get_url_variables(base_path, self.path)
-        else:
-            self.send_error(HTTP_CODES.NOT_FOUND)
-            self.send_header("Location", get_complete_path(self))
-            self.end_headers()
-            return
-        
-        print("Also works")
-
-        try:
-            print("Inside try, content length is", self.headers["Content-Length"])
-            content = self.read_content()
-
-            res: Basic_POST_Response = POST_caller(self, content, url_variables)
-            self.send_response(res.status_code)
-
-        except HTTPError as e:
-            self.send_error(e.response.status_code, e.response.reason)
-
-        self.send_header("Location", get_complete_path(self))
-        self.end_headers()
-        '''
-
     def do_GET (self): # Find records
         exists = self.path in self.get_callers
         url_variables = {}
@@ -182,33 +154,3 @@ class RequestHandler (BaseHTTPRequestHandler):
         self.send_header("Location", get_complete_path(self))
         self.end_headers()
         self.wfile.write(content)
-
-'''
-def do_BODY (handler: RequestHandler, path: str, callers: dict[str, Callable]):
-    caller: Callable
-
-    base_path = find_base_for_caller(path, callers)
-    url_variables = {}
-
-    if base_path:
-        caller = callers[base_path]
-        url_variables = get_url_variables(base_path, path)
-    else:
-        handler.send_error(HTTP_CODES.NOT_FOUND)
-        handler.send_header("Location", get_complete_path(handler))
-        handler.end_headers()
-        return
-
-    try:
-        print("Content length is", handler.headers["Content-Length"])
-        content = handler.read_content()
-
-        res: Basic_Response = caller(handler, content, url_variables)
-        handler.send_response(res.status_code)
-
-    except HTTPError as e:
-        handler.send_error(e.response.status_code, e.response.reason)
-
-    handler.send_header("Location", get_complete_path(handler))
-    handler.end_headers() 
-'''

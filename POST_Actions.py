@@ -22,4 +22,12 @@ def post_person (handler: BaseHTTPRequestHandler, data: bytes, url_variables: di
         post_data["age"] = int(post_data["age"])
 
     print(post_data)
-    return Basic_POST_Response("set", post_data, Person)
+    res = Basic_POST_Response("set", post_data, Person)
+
+    b = bytes(
+        json.dumps(post_data), 
+        "utf-8"
+    )
+
+    res.send(b)
+    return res
