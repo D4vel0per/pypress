@@ -1,29 +1,49 @@
 from http.server import BaseHTTPRequestHandler
 from typing import Any
 
+from bson import ObjectId
 from pydantic import BaseModel
 
-from constants import HTTP_CODES, GET_mode
-from utils import class_to_dict, try_int
-from utils import get_base_path, get_complete_path
+from constants import HTTP_CODES, GET_mode, Mongo_Update_Operators
+from utils import class_to_dict, get_base_path, get_complete_path
 
 from mongo_connection import get_collection
 
 import json
 
-from bson import ObjectId
 from pymongo.collection import Collection
+
+from pymongo.collection import InsertManyResult, InsertOneResult
 
 def insert_to_db(collection:str, data: dict|list):
     collection: Collection = get_collection(collection)
     if type(data) is list:
         collection.insert_many(data)
-    else:
+    elif type(data) is dict:
         collection.insert_one(data)
 
-def replace_to_db(path:str, query:dict[str, Any], data: dict[str, Any]):
+def replace_to_db(path:str, query:dict[str, Any], data: dict[str, Any]|list):
     collection: Collection = get_collection(path)
-    collection.replace_one(query, data)
+    if type(data) is list:
+        collection.delete_many(query)
+        collection.insert_many(data)
+    elif type(data) is dict:
+        collection.replace_one(query, data)
+
+def update_to_db(path:str, query:dict[str, Any], data: dict[str, Any], update_many: bool = False):
+    collection: Collection = get_collection(path)
+    print(path)
+    if update_many:
+        collection.update_many(query, data)
+    else:
+        collection.update_one(query, data)
+
+def delete_to_db(path:str, query:dict[str, Any], delete_many: bool = False):
+    collection: Collection = get_collection(path)
+    if delete_many:
+        collection.delete_many(query)
+    else:
+        collection.delete_one(query)
 
 def get_from_db(path:str, query: dict[str, Any]={}):
     collection: Collection = get_collection(path)
@@ -88,48 +108,30 @@ class Basic_GET_Response ():
             case HTTP_CODES.INTERNAL_SERVER_ERROR:
                 print_status("500 INTERNAL SERVER ERROR")
                 # I'll do this later (I won't)
-      
-class Set_DB:
-    def __init__(self, content: bytes|str, model: BaseModel):
-        self.id = ObjectId()
-        try:
-            class PassModel (BaseModel, model):
-                pass
-            
-            json_data: dict[str, Any] = json.loads(content)
-            cls_dict = class_to_dict(model, json_data)
 
-            print(cls_dict)
-
-            try:
-                test_data: PassModel = PassModel(**cls_dict)
-                self.data: dict[str, Any] = cls_dict
-            except Exception as e:
-                print("Data is incorrect: ", json_data)
-                print("Error: ", e)
-                self.data = None
-            
-            if "id" in json_data:
-                id = ObjectId(json_data["id"])
-
-                if ObjectId.is_valid(id):
-                    self.id = id
-
-        except Exception as e:
-            print("There was a problem at Set_DB:", e.with_traceback(None))
-    id: ObjectId
-
-def checkModel (model: Any, obj:dict):
+def checkModel (model: Any, data:dict|list[dict]):
     class PassModel (BaseModel, model):
         pass
 
     try:
-        PassModel.model_validate(obj)
+        if type(data) is list:
+            for obj in data:
+                PassModel.model_validate(obj)
+        elif type(data) is dict:
+            PassModel.model_validate(data)
+        else:
+            return False
+        
         return True
     except:
         return False
         
 class Basic_POST_Response (): # CREATE
+    status_code: HTTP_CODES
+    body: dict|list = None
+    collection: Collection = None
+    valid_model: bool = False
+
     def __init__(
             self, 
             collection_name:str,
@@ -149,11 +151,8 @@ class Basic_POST_Response (): # CREATE
         self.valid_model = False
 
         if collection is not None:
-            if type(body) is list:
-                self.valid_model = checkModel(model, body[0]) if len(body) else False
-                
-            else:
-                self.valid_model = checkModel(model, body)
+            
+            self.valid_model = checkModel(model, body)
             
             if self.valid_model:
                 try:
@@ -170,6 +169,133 @@ class Basic_POST_Response (): # CREATE
         if self.status_code == HTTP_CODES.CREATED:
             self.body = body
 
+class Basic_PUT_Response ():
+    status_code: HTTP_CODES
+    body: dict|list
+    collection_name: str
+    valid_model: bool
+    query: dict[str, Any]
+    ref: Any
+    
+    def __init__(
+            self, 
+            collection_name:str,
+            body: dict|list,
+            query: dict[str, Any],
+            model: Any
+        ):
+        
+        self.valid_model = checkModel(model, body)
 
-# PUT -> CREATE OR REPLACE
-# PATCH -> UPDATE
+        self.status_code = HTTP_CODES.SUCCESS if self.valid_model else HTTP_CODES.BAD_REQUEST
+
+        if get_collection(collection_name) is None:
+            self.status_code = HTTP_CODES.NOT_FOUND
+        else:
+            self.collection_name = collection_name
+            self.body = body if self.valid_model else None
+            self.query = query if self.valid_model else None
+
+    def send(self, path: str = None, ref_key: str = None):
+        if self.valid_model:
+            doc = get_from_db(self.collection_name, self.query)
+
+            print(doc)
+
+            if ref_key in self.body and path:
+                self.ref = f"{path}/{self.body[ref_key]}"
+            else:
+                self.ref = path
+
+            if doc is None:
+                try:
+                    insert_to_db(self.collection_name, self.body)
+                    self.status_code = HTTP_CODES.CREATED if path or ref_key else HTTP_CODES.NO_CONTENT
+                except:
+                    self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
+            else:
+                try:
+                    replace_to_db(self.collection_name, self.query, self.body)
+                    self.status_code = HTTP_CODES.SUCCESS if path or ref_key else HTTP_CODES.NO_CONTENT
+                except:
+                    self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
+
+def isPatchableBy (model: Any, patch: dict[str, Any]):
+    model_dict: dict = class_to_dict(model)
+    eval_patch = {}
+
+    for key, value in patch.items():
+        if key in list(class_to_dict(Mongo_Update_Operators).values()):
+            eval_patch.update(patch[key])
+        else:
+            eval_patch.update({ key: value })
+
+    for key, value in eval_patch.items():
+        key_in_model = key in model_dict
+        is_type_eq = model_dict[key] is type(value) if key_in_model else False 
+        if not key_in_model or not is_type_eq:
+            return False
+        
+    return True
+        
+class Basic_PATCH_Response (): # UPDATE ONLY WORKS WITH $ OPERATORS
+    def __init__(
+            self,
+            collection_name:str,
+            body: dict,
+            query: dict,
+            model: Any
+    ):
+        self.valid_model = isPatchableBy(model, body)
+        self.status_code = HTTP_CODES.SUCCESS if self.valid_model else HTTP_CODES.BAD_REQUEST
+
+        if get_collection(collection_name) is None:
+            self.status_code = HTTP_CODES.NOT_FOUND
+        else:
+            self.collection_name = collection_name
+            self.body = body if self.valid_model else None
+            self.query = query if self.valid_model else None
+        
+    def send(self, path: str = None, ref_key: str = None, patch_many = False):
+        if self.valid_model:
+            doc = get_from_db(self.collection_name, self.query)
+
+            if ref_key in self.body and path:
+                self.ref = f"{path}/{self.body[ref_key]}"
+                self.status_code = HTTP_CODES.SUCCESS
+            else:
+                self.ref = path
+                self.status_code = HTTP_CODES.NO_CONTENT
+
+            if doc is not None:
+                try:
+                    update_to_db(self.collection_name, self.query, self.body, patch_many)
+                except Exception as e:
+                    print(e.with_traceback())
+                    self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
+
+
+class Basic_DELETE_Response ():
+    def __init__(
+            self,
+            collection_name: str,
+            query: dict[str, Any]
+
+    ):
+        self.docs = get_from_db(collection_name, query)
+        self.collection_name = collection_name
+        self.query = query
+        self.status_code = HTTP_CODES.ACCEPTED
+        self.content = b""
+
+    def send (self, success_msg: bytes = b"", delete_many = False):
+        
+        if self.docs is not None:
+            try:
+                delete_to_db(self.collection_name, self.query, delete_many)
+                self.status_code = HTTP_CODES.SUCCESS if success_msg else HTTP_CODES.NO_CONTENT
+                self.content = success_msg
+            except:
+                self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
+        else:
+            self.status_code = HTTP_CODES.NOT_FOUND

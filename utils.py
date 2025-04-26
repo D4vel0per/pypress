@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import parse_qs
 from http.server import BaseHTTPRequestHandler
 import re
@@ -11,8 +11,6 @@ def get_url_query(path: str):
 
     return query
 
-separate_path = lambda path: list(filter(lambda a: bool(a), path.split("/")))
-
 def try_int (value: Any):
     result = None
     try:
@@ -24,13 +22,18 @@ def try_int (value: Any):
 
 def is_var_url (base_path:str, actual_path:str):
     variables = get_url_variables(base_path, actual_path)
-
     pair_path = base_path + ""
 
+    print("Inside is_var_url: ", base_path, actual_path)
+
     for key in variables:
+        if re.search("^\[.*\?\]$", key):
+            simple_match = is_var_url(base_path.replace(key, ""), actual_path)
+            if simple_match: return True
+
         pair_path = pair_path.replace(key, variables[key])
 
-    return pair_path == actual_path
+    return re.sub("^/+|/+$", "", pair_path) == re.sub("^/+|/+$", "", actual_path)
 
 def get_base_path (actual_path: str, url_variables: dict[str, str]):
     base_path = actual_path + ""
@@ -42,8 +45,10 @@ def get_base_path (actual_path: str, url_variables: dict[str, str]):
     return base_path.removeprefix("/")
 
 def get_url_variables(base_path:str, actual_path:str):
-    keys = separate_path(base_path)
-    values = separate_path(actual_path)
+    separate_path = lambda path: list(filter(lambda a: bool(a), path.split("/")))
+
+    keys: list[str] = separate_path(base_path)
+    values: list[str] = separate_path(actual_path)
 
     result = {}
     
@@ -51,6 +56,8 @@ def get_url_variables(base_path:str, actual_path:str):
         key = keys[i]
         if re.search("^\[.*\]$", key) and len(values) > i:
             result[key] = values[i]
+        elif re.search("^\[.*\?\]$", key):
+            result[key] = ""
 
     return result
 
@@ -59,18 +66,24 @@ def get_complete_path(handler: BaseHTTPRequestHandler):
     base = f"http://{host}{handler.path}"
     return base
 
-def class_to_dict (clss, obj):
-    annotations = clss.__annotations__
+def class_to_dict (clss):
+    annotations: dict = clss.__annotations__
+    proto_dict: dict[str, Any] = clss.__dict__
+    constants_dict: dict = {}
+
+    for key, value in proto_dict.items():
+        if not (key.startswith("__") and key.endswith("__")):
+            constants_dict[key] = value
+
     cls_dict = {}
     print("Inside class_to_dict")
     print("Annotations: ", clss.__annotations__)
     
+
     for (key, value_cls) in annotations.items():
         print (key, value_cls)
-        if key in obj:
-            try:
-                cls_dict[key] = value_cls(obj[key])
-            except:
-                cls_dict[key] = None
+        cls_dict[key] = value_cls
+
+    cls_dict.update(constants_dict)
     
     return cls_dict
