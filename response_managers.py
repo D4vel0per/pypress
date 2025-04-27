@@ -1,19 +1,19 @@
+import base64
 from http.server import BaseHTTPRequestHandler
 from typing import Any
 
-from bson import ObjectId
+from pathlib import Path
+
 from pydantic import BaseModel
 
 from constants import HTTP_CODES, GET_mode, Mongo_Update_Operators
-from utils import class_to_dict, get_base_path, get_complete_path
+from utils import bytes_to_b64, class_to_dict, get_base_path, get_complete_path
 
 from mongo_connection import get_collection
 
 import json
 
 from pymongo.collection import Collection
-
-from pymongo.collection import InsertManyResult, InsertOneResult
 
 def insert_to_db(collection:str, data: dict|list):
     collection: Collection = get_collection(collection)
@@ -58,6 +58,7 @@ def get_from_db(path:str, query: dict[str, Any]={}):
 
 doc_to_bytes = lambda doc: bytes(json.dumps(doc), "utf-8") if doc is not None else None
 
+'''
 class Basic_GET_Response ():
     def __init__(
             self, 
@@ -108,6 +109,93 @@ class Basic_GET_Response ():
             case HTTP_CODES.INTERNAL_SERVER_ERROR:
                 print_status("500 INTERNAL SERVER ERROR")
                 # I'll do this later (I won't)
+'''
+
+
+'''
+res = Basic_GET_Response("set", {'name': "Steve"})
+res.get_file() -> None (Not an absolute path, file searching do not accepts queries)
+res.get_db() -> [{...}, {...}, {...}]
+
+-------------------------------------------------------------------------------------------
+
+res = Basic_GET_Response("set", {})
+res.get_file() -> None (Not an absolute path, file searching do not accepts queries)
+res.get_db() -> [{...}, {...}, {...}, {...}, {...}, {...}, ...]
+
+-------------------------------------------------------------------------------------------
+
+res = Basic_GET_Response("set")
+res.get_file() -> None (Not an absolute path)
+res.get_db() -> None (Not Allowed: You need atleast a query to call your db)
+
+-------------------------------------------------------------------------------------------
+
+res = Basic_GET_Response("[absolute-path-file]")
+res.get_file() -> b"Something"
+res.get_db() -> None (Not Allowed: You need atleast a query to call your db)
+
+-------------------------------------------------------------------------------------------
+
+res = Basic_GET_Response("[absolute-path-folder]")
+res.get_file() -> {
+    "filename1.txt": b"Something"
+}
+res.get_db() -> None (Not Allowed: You need atleast a query to call your db)
+
+
+'''
+class Basic_GET_Response ():
+    path: str
+    status_code: HTTP_CODES
+    content: bytes = None
+
+    def __init__(
+            self,
+            path_or_collection_name: str
+        ):
+
+        self.status_code = HTTP_CODES.BAD_REQUEST
+        self.path = path_or_collection_name
+
+    
+    def redirect(self, handler: BaseHTTPRequestHandler, new_path: str):
+        self.status_code = HTTP_CODES.REDIRECT
+        handler.path = new_path
+
+    def send_file (self, url_variables: dict[str, str] = {}):
+        path = Path(get_base_path(Path(self.path).as_posix(), url_variables))
+        print(path)
+
+        if path.exists() and path.is_absolute() and path.is_file():
+            print("exists, is absolute and is a file")
+            self.path = str(path)
+        else:
+            self.status_code = HTTP_CODES.NOT_FOUND
+            
+        try:
+            file = Path(self.path)
+            if file.is_file():
+                with open(str(file), "rb") as file_data:
+                    self.content = file_data.read()
+                self.status_code = HTTP_CODES.SUCCESS
+
+        except Exception as e:
+            print(e)
+            self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
+
+    def send_db (self, query: dict[str, Any]):
+        try:
+            if get_collection(self.path) is not None:
+                docs = get_from_db(self.path, query)
+                if docs is not None:
+                    self.content = doc_to_bytes(docs)
+                    self.status_code = HTTP_CODES.SUCCESS
+
+        except Exception as e:
+            print(e)
+            self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
+
 
 def checkModel (model: Any, data:dict|list[dict]):
     class PassModel (BaseModel, model):

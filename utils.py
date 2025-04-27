@@ -1,15 +1,11 @@
-from typing import Any, Callable
-from urllib.parse import parse_qs
+from typing import Any
 from http.server import BaseHTTPRequestHandler
 import re
+import base64
 
-def get_url_query(path: str):
-    path_arr = path.split("?")
-    query = {}
-    if len(path_arr) > 1:
-        query = parse_qs(path_arr[1])
-
-    return query
+def bytes_to_b64 (data: bytes):
+    result = base64.b64encode(data).decode("ascii")
+    return result
 
 def try_int (value: Any):
     result = None
@@ -23,9 +19,6 @@ def try_int (value: Any):
 def is_var_url (base_path:str, actual_path:str):
     variables = get_url_variables(base_path, actual_path)
     pair_path = base_path + ""
-
-    print("Inside is_var_url: ", base_path, actual_path)
-
     for key in variables:
         if re.search("^\[.*\?\]$", key):
             simple_match = is_var_url(base_path.replace(key, ""), actual_path)

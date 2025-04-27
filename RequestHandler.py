@@ -1,5 +1,6 @@
-from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler
-from typing import Any, Callable
+from http.server import SimpleHTTPRequestHandler
+from typing import Callable
+from urllib.parse import parse_qs, urlparse
 
 from requests import HTTPError
 
@@ -11,7 +12,7 @@ from response_managers import (
     Basic_POST_Response, 
     Basic_PUT_Response
 )
-from utils import get_complete_path, get_url_query, get_url_variables, is_var_url
+from utils import get_complete_path, get_url_variables, is_var_url
 
 def find_base_for_caller(path:str, callers: list[Callable]) -> str: 
     path = path.split("?")[0]
@@ -27,7 +28,7 @@ def find_base_for_caller(path:str, callers: list[Callable]) -> str:
     return base
 
 class BodyUtilities:
-    def __init__(self, c, url_v):
+    def __init__(self, c: Callable, url_v: dict[str, str]):
         self.caller = c
         self.url_variables = url_v
 
@@ -40,6 +41,7 @@ class RequestHandler (SimpleHTTPRequestHandler):
     put_callers: dict[str, Callable] = {}
     patch_callers: dict[str, Callable] = {}
     delete_callers: dict[str, Callable] = {}
+    root: str
 
     def read_content (self):
         content: bytes = b""
@@ -51,7 +53,8 @@ class RequestHandler (SimpleHTTPRequestHandler):
     
     def write_content (self, content=bytes):
         try:
-            self.wfile.write(content)
+            if content is not None:
+                self.wfile.write(content)
         except Exception as e:
             print("Error while writing data:", e)
     
@@ -92,6 +95,8 @@ class RequestHandler (SimpleHTTPRequestHandler):
             content = self.read_content()
             res: Basic_PATCH_Response = utilities.caller(self, content, utilities.url_variables)
             self.send_res(res)
+            if res.ref is not None:
+                self.write_content(bytes(res.ref, "utf-8"))
     
     def do_DELETE (self):
         utilities = self.get_utilities(self.delete_callers)
@@ -114,43 +119,15 @@ class RequestHandler (SimpleHTTPRequestHandler):
             self.write_content(res.content)
 
     def do_GET (self): # Find records
-        exists = self.path in self.get_callers
-        url_variables = {}
-        GET_caller = lambda a, b, c: Basic_GET_Response(None, self, self.path)
-        base_path = find_base_for_caller(self.path, self.get_callers)
+        utilities = self.get_utilities(self.get_callers)
 
-        if base_path:
-            GET_caller = self.get_callers[base_path]
-            url_variables = get_url_variables(base_path, self.path)
-        elif not exists:
-            print("Not an available path")
-            self.send_response(HTTP_CODES.NOT_FOUND)
-            self.end_headers()
-            return
-        
-        try:
-            query = get_url_query(self.path)
+        if utilities is None:
+            self.send_error(HTTP_CODES.NOT_FOUND)
+        else:
+            query = parse_qs(urlparse(self.path).query)
+            res: Basic_GET_Response = utilities.caller(self, query, utilities.url_variables)
+            self.send_res(res)
+            self.write_content(res.content)
 
-            host = self.headers["Host"]
-            print(f"GET request at {self.path}, {host}")
-
-            res: Basic_GET_Response = GET_caller(self, query, url_variables)
-
-            content = res.content
-            
-            if res.status_code == 200:
-                print("200 OK")
-            elif res.status_code == 303:
-                print("303 REDIRECT")
-                self.path = res.path
-            elif res.status_code == 404:
-                print("404 NOT_FOUND")
-
-            print(get_complete_path(self))
-            self.send_response(res.status_code)
-
-        except HTTPError as e:
-            self.send_error(e.response.status_code, e.response.reason)
-        self.send_header("Location", get_complete_path(self))
-        self.end_headers()
-        self.wfile.write(content)
+    def set_root (root: str):
+        RequestHandler.root = root
