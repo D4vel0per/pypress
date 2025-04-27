@@ -1,5 +1,5 @@
 from http.server import SimpleHTTPRequestHandler
-from typing import Callable
+from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
 
 from requests import HTTPError
@@ -10,7 +10,8 @@ from response_managers import (
     Basic_GET_Response, 
     Basic_PATCH_Response, 
     Basic_POST_Response, 
-    Basic_PUT_Response
+    Basic_PUT_Response,
+    Basic_Response
 )
 from utils import get_complete_path, get_url_variables, is_var_url
 
@@ -31,16 +32,23 @@ class BodyUtilities:
     def __init__(self, c: Callable, url_v: dict[str, str]):
         self.caller = c
         self.url_variables = url_v
-
-class Basic_Response:
-    status_code: HTTP_CODES = HTTP_CODES.SUCCESS
     
 class RequestHandler (SimpleHTTPRequestHandler):
-    get_callers: dict[str, Callable] = {}
-    post_callers: dict[str, Callable] = {}
-    put_callers: dict[str, Callable] = {}
-    patch_callers: dict[str, Callable] = {}
-    delete_callers: dict[str, Callable] = {}
+    get_callers: (dict[
+        str, Callable[[SimpleHTTPRequestHandler, dict[str, Any], dict[str, str]], Basic_GET_Response]
+    ]) = {}
+    post_callers: (dict[
+        str, Callable[[SimpleHTTPRequestHandler, bytes, dict[str, str]], Basic_POST_Response]
+    ]) = {}
+    put_callers: (dict[
+        str, Callable[[SimpleHTTPRequestHandler, bytes, dict[str, str]], Basic_PUT_Response]
+    ]) = {}
+    patch_callers: (dict[
+        str, Callable[[SimpleHTTPRequestHandler, bytes, dict[str, str]], Basic_PATCH_Response]
+    ]) = {}
+    delete_callers: (dict[
+        str, Callable[[SimpleHTTPRequestHandler, bytes, dict[str, str]], Basic_DELETE_Response]
+    ]) = {}
     root: str
 
     def read_content (self):
@@ -58,8 +66,18 @@ class RequestHandler (SimpleHTTPRequestHandler):
         except Exception as e:
             print("Error while writing data:", e)
     
-    def get_utilities (self, callers: dict[str, Callable]):
-        caller: Callable # Luego se hará una clase general
+    def get_utilities (
+            self, 
+            callers: dict[str,(
+                Callable[[SimpleHTTPRequestHandler, bytes, dict[str, str]], Basic_Response] |
+                Callable[[SimpleHTTPRequestHandler, dict[str, Any], dict[str, str]], Basic_Response]
+            )]
+        ):
+        caller: (
+            Callable[[RequestHandler, bytes, dict[str, str]], Basic_Response] |
+            Callable[[RequestHandler, dict[str, Any], dict[str, str]], Basic_Response]
+        )
+
         base_path = find_base_for_caller(self.path, callers)
         url_variables = {}
 
@@ -69,7 +87,7 @@ class RequestHandler (SimpleHTTPRequestHandler):
         
         return BodyUtilities(caller, url_variables) if base_path else None
 
-    def send_res (self, res):
+    def send_res (self, res: Basic_Response):
         try:
             self.send_response(res.status_code, "CONTENT")
         except HTTPError as e:
@@ -95,8 +113,7 @@ class RequestHandler (SimpleHTTPRequestHandler):
             content = self.read_content()
             res: Basic_PATCH_Response = utilities.caller(self, content, utilities.url_variables)
             self.send_res(res)
-            if res.ref is not None:
-                self.write_content(bytes(res.ref, "utf-8"))
+            self.write_content(res.content)
     
     def do_DELETE (self):
         utilities = self.get_utilities(self.delete_callers)

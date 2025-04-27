@@ -1,5 +1,6 @@
 import base64
 from http.server import BaseHTTPRequestHandler
+from types import NoneType
 from typing import Any
 
 from pathlib import Path
@@ -145,7 +146,11 @@ res.get_db() -> None (Not Allowed: You need atleast a query to call your db)
 
 
 '''
-class Basic_GET_Response ():
+class Basic_Response ():
+    status_code: HTTP_CODES
+    content: bytes|NoneType
+
+class Basic_GET_Response (Basic_Response):
     path: str
     status_code: HTTP_CODES
     content: bytes = None
@@ -214,12 +219,12 @@ def checkModel (model: Any, data:dict|list[dict]):
     except:
         return False
         
-class Basic_POST_Response (): # CREATE
+class Basic_POST_Response (Basic_Response): # CREATE
     status_code: HTTP_CODES
     body: dict|list
     collection_name: str
     valid_model: bool
-    content: str
+    content: bytes
 
     def __init__(
             self, 
@@ -237,7 +242,7 @@ class Basic_POST_Response (): # CREATE
             self.collection_name = collection_name
             self.body = body if self.valid_model else None
 
-    def send(self, html:str = ""):
+    def send(self, html:bytes = b""):
         if self.valid_model:
             self.content = html
             try:
@@ -250,13 +255,12 @@ class Basic_POST_Response (): # CREATE
             self.status_code = HTTP_CODES.BAD_REQUEST
 
 
-class Basic_PUT_Response ():
+class Basic_PUT_Response (Basic_Response):
     status_code: HTTP_CODES
     body: dict|list
     collection_name: str
     valid_model: bool
     query: dict[str, Any]
-    ref: Any
     
     def __init__(
             self, 
@@ -277,27 +281,24 @@ class Basic_PUT_Response ():
             self.body = body if self.valid_model else None
             self.query = query if self.valid_model else None
 
-    def send(self, path: str = None, ref_key: str = None):
+    def send(self, path: str = None):
         if self.valid_model:
             doc = get_from_db(self.collection_name, self.query)
 
             print(doc)
 
-            if ref_key in self.body and path:
-                self.ref = f"{path}/{self.body[ref_key]}"
-            else:
-                self.ref = path
+            self.content = bytes(path, "utf-8")
 
             if doc is None:
                 try:
                     insert_to_db(self.collection_name, self.body)
-                    self.status_code = HTTP_CODES.CREATED if path or ref_key else HTTP_CODES.NO_CONTENT
+                    self.status_code = HTTP_CODES.CREATED if path else HTTP_CODES.NO_CONTENT
                 except:
                     self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
             else:
                 try:
                     replace_to_db(self.collection_name, self.query, self.body)
-                    self.status_code = HTTP_CODES.SUCCESS if path or ref_key else HTTP_CODES.NO_CONTENT
+                    self.status_code = HTTP_CODES.SUCCESS if path else HTTP_CODES.NO_CONTENT
                 except:
                     self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
 
@@ -319,7 +320,7 @@ def isPatchableBy (model: Any, patch: dict[str, Any]):
         
     return True
         
-class Basic_PATCH_Response (): # UPDATE ONLY WORKS WITH $ OPERATORS
+class Basic_PATCH_Response (Basic_Response): # UPDATE ONLY WORKS WITH $ OPERATORS
     def __init__(
             self,
             collection_name:str,
@@ -329,6 +330,7 @@ class Basic_PATCH_Response (): # UPDATE ONLY WORKS WITH $ OPERATORS
     ):
         self.valid_model = isPatchableBy(model, body)
         self.status_code = HTTP_CODES.SUCCESS if self.valid_model else HTTP_CODES.BAD_REQUEST
+        self.content = b""
 
         if get_collection(collection_name) is None:
             self.status_code = HTTP_CODES.NOT_FOUND
@@ -337,16 +339,12 @@ class Basic_PATCH_Response (): # UPDATE ONLY WORKS WITH $ OPERATORS
             self.body = body if self.valid_model else None
             self.query = query if self.valid_model else None
         
-    def send(self, path: str = None, ref_key: str = None, patch_many = False):
+    def send(self, path: str = None, patch_many = False):
         if self.valid_model:
             doc = get_from_db(self.collection_name, self.query)
 
-            if ref_key in self.body and path:
-                self.ref = f"{path}/{self.body[ref_key]}"
-                self.status_code = HTTP_CODES.SUCCESS
-            else:
-                self.ref = path
-                self.status_code = HTTP_CODES.NO_CONTENT
+            self.status_code = HTTP_CODES.SUCCESS if path else HTTP_CODES.NO_CONTENT
+            self.content = bytes(path, "utf-8")
 
             if doc is not None:
                 try:
@@ -356,7 +354,7 @@ class Basic_PATCH_Response (): # UPDATE ONLY WORKS WITH $ OPERATORS
                     self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
 
 
-class Basic_DELETE_Response ():
+class Basic_DELETE_Response (Basic_Response):
     def __init__(
             self,
             collection_name: str,

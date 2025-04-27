@@ -7,7 +7,13 @@ from PUT_Actions import put_person
 from RequestHandler import RequestHandler
 from actions.DELETE_actions import delete_person
 from actions.PATCH_actions import patch_person
-from response_managers import Basic_DELETE_Response, Basic_PATCH_Response, Basic_POST_Response, Basic_PUT_Response
+from response_managers import (
+    Basic_DELETE_Response,
+    Basic_GET_Response, 
+    Basic_PATCH_Response, 
+    Basic_POST_Response, 
+    Basic_PUT_Response
+)
 
 print_exp = lambda e, req: print(f"There was an exception while trying to proccess your {req} request:\n{repr(e)}")
 
@@ -29,38 +35,39 @@ class Server ():
         if callback and path:
             caller_lib[path] = callback
 
-    def GET (self, path: str, callback: Callable):
+    def GET (
+            self, 
+            path: str, 
+            callback: Callable[[RequestHandler, dict[str, Any], dict[str, str]], Basic_GET_Response]
+        ):
         self.CALL(path, callback, RequestHandler.get_callers)
         
 
     def POST (
             self, 
             path: str, 
-            callback: Callable[
-                [BaseHTTPRequestHandler, bytes, dict[str, Any]], 
-                Basic_POST_Response
-            ]
+            callback: Callable[[RequestHandler, bytes, dict[str, Any]], Basic_POST_Response]
         ):
         self.CALL(path, callback, RequestHandler.post_callers)
 
     def PUT (
             self,
             path: str,
-            callback: Callable[[BaseHTTPRequestHandler, bytes, dict[str, Any]], Basic_PUT_Response]
+            callback: Callable[[RequestHandler, bytes, dict[str, Any]], Basic_PUT_Response]
     ):
         self.CALL(path, callback, RequestHandler.put_callers)
 
     def PATCH (
             self,
             path: str,
-            callback: Callable[[BaseHTTPRequestHandler, bytes, dict[str, Any]], Basic_PATCH_Response]
+            callback: Callable[[RequestHandler, bytes, dict[str, Any]], Basic_PATCH_Response]
     ):
         self.CALL(path, callback, RequestHandler.patch_callers)
 
     def DELETE (
             self,
             path: str,
-            callback: Callable[[BaseHTTPRequestHandler, bytes, dict[str, Any]], Basic_DELETE_Response]
+            callback: Callable[[RequestHandler, bytes, dict[str, Any]], Basic_DELETE_Response]
     ):
         self.CALL(path, callback, RequestHandler.delete_callers)
         
