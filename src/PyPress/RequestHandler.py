@@ -32,22 +32,49 @@ class BodyUtilities:
     def __init__(self, c: Callable, url_v: dict[str, str]):
         self.caller = c
         self.url_variables = url_v
+
+class RequestData:
+    """
+    ### Class representing the data passed to HTTP custom methods
+
+    #### Properties:
+        - **handler:** `RequestHandler`  
+        - **body:** `bytes | None`
+        - **url_query:** `dict[str, str] | None`
+        - **url_variables:** `dict[str, str]`
+    """
+    handler: SimpleHTTPRequestHandler
+    url_query: dict[str, str] | None
+    body: bytes | None
+    url_variables: dict[str, str]
+
+    def __init__(
+            self, 
+            handler: SimpleHTTPRequestHandler, 
+            body: bytes | None, 
+            url_query: dict[str, str], 
+            url_variables: dict[str, str]):
+        self.handler = handler
+        self.body = body
+        self.url_variables = url_variables
+        self.url_query = url_query
+    
     
 class RequestHandler (SimpleHTTPRequestHandler):
     get_callers: (dict[
-        str, Callable[[SimpleHTTPRequestHandler, dict[str, Any], dict[str, str]], Basic_GET_Response]
+        str, Callable[[RequestData], Basic_GET_Response]
     ]) = {}
     post_callers: (dict[
-        str, Callable[[SimpleHTTPRequestHandler, bytes, dict[str, str]], Basic_POST_Response]
+        str, Callable[[RequestData], Basic_POST_Response]
     ]) = {}
     put_callers: (dict[
-        str, Callable[[SimpleHTTPRequestHandler, bytes, dict[str, str]], Basic_PUT_Response]
+        str, Callable[[RequestData], Basic_PUT_Response]
     ]) = {}
     patch_callers: (dict[
-        str, Callable[[SimpleHTTPRequestHandler, bytes, dict[str, str]], Basic_PATCH_Response]
+        str, Callable[[RequestData], Basic_PATCH_Response]
     ]) = {}
     delete_callers: (dict[
-        str, Callable[[SimpleHTTPRequestHandler, bytes, dict[str, str]], Basic_DELETE_Response]
+        str, Callable[[RequestData], Basic_DELETE_Response]
     ]) = {}
     root: str
 
@@ -69,13 +96,13 @@ class RequestHandler (SimpleHTTPRequestHandler):
     def get_utilities (
             self, 
             callers: dict[str,(
-                Callable[[SimpleHTTPRequestHandler, bytes, dict[str, str]], Basic_Response] |
-                Callable[[SimpleHTTPRequestHandler, dict[str, Any], dict[str, str]], Basic_Response]
+                Callable[[RequestData], Basic_Response] |
+                Callable[[RequestData], Basic_Response]
             )]
         ):
         caller: (
-            Callable[[RequestHandler, bytes, dict[str, str]], Basic_Response] |
-            Callable[[RequestHandler, dict[str, Any], dict[str, str]], Basic_Response]
+            Callable[[RequestData], Basic_Response] |
+            Callable[[RequestData], Basic_Response]
         )
 
         base_path = find_base_for_caller(self.path, callers)
@@ -102,7 +129,7 @@ class RequestHandler (SimpleHTTPRequestHandler):
             self.send_error(HTTP_CODES.NOT_FOUND)
         else:
             content = self.read_content()
-            res: Basic_PUT_Response = utilities.caller(self, content, utilities.url_variables)
+            res: Basic_PUT_Response = utilities.caller(RequestData(self, content, None, utilities.url_variables))
             self.send_res(res)
     
     def do_PATCH (self):
@@ -111,7 +138,7 @@ class RequestHandler (SimpleHTTPRequestHandler):
             self.send_error(HTTP_CODES.NOT_FOUND)
         else:
             content = self.read_content()
-            res: Basic_PATCH_Response = utilities.caller(self, content, utilities.url_variables)
+            res: Basic_PATCH_Response = utilities.caller(RequestData(self, content, None, utilities.url_variables))
             self.send_res(res)
             self.write_content(res.content)
     
@@ -121,7 +148,7 @@ class RequestHandler (SimpleHTTPRequestHandler):
             self.send_error(HTTP_CODES.BAD_REQUEST)
         else:
             content = self.read_content()
-            res: Basic_DELETE_Response = utilities.caller(self, content, utilities.url_variables)
+            res: Basic_DELETE_Response = utilities.caller(RequestData(self, content, None, utilities.url_variables))
             self.send_res(res)
             self.write_content(res.content)
 
@@ -131,7 +158,7 @@ class RequestHandler (SimpleHTTPRequestHandler):
             self.send_error(HTTP_CODES.NOT_FOUND)
         else:
             content = self.read_content()
-            res: Basic_POST_Response = utilities.caller(self, content, utilities.url_variables)
+            res: Basic_POST_Response = utilities.caller(RequestData(self, content, None, utilities.url_variables))
             self.send_res(res)
             self.write_content(res.content)
 
@@ -142,7 +169,7 @@ class RequestHandler (SimpleHTTPRequestHandler):
             self.send_error(HTTP_CODES.NOT_FOUND)
         else:
             query = parse_qs(urlparse(self.path).query)
-            res: Basic_GET_Response = utilities.caller(self, query, utilities.url_variables)
+            res: Basic_GET_Response = utilities.caller(RequestData(self, None, query, utilities.url_variables))
             self.send_res(res)
             self.write_content(res.content)
 
