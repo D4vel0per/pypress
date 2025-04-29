@@ -4,11 +4,9 @@ from typing import Any
 
 from pathlib import Path
 
-from constants import HTTP_CODES
-from db_methods import delete_to_db, get_from_db, insert_to_db, replace_to_db, update_to_db
-from utilities.response_utils import checkModel, get_base_path, isPatchableBy
-
-from mongo_connection import get_collection
+from .constants import HTTP_CODES
+from .Database_Manager import DB
+from .utilities import checkModel, get_base_path, isPatchableBy
 
 import json
 
@@ -59,8 +57,8 @@ class Basic_GET_Response (Basic_Response):
 
     def send_db (self, query: dict[str, Any]):
         try:
-            if get_collection(self.path) is not None:
-                docs = get_from_db(self.path, query)
+            if DB.collection_or_table_exists(self.path):
+                docs = DB.get_from_db(self.path, query)
                 if docs is not None:
                     self.content = doc_to_bytes(docs)
                     self.status_code = HTTP_CODES.SUCCESS
@@ -86,7 +84,7 @@ class Basic_POST_Response (Basic_Response): # CREATE
         self.status_code = HTTP_CODES.SUCCESS if self.valid_model else HTTP_CODES.BAD_REQUEST
         self.content = b""
 
-        if get_collection(collection_name) is None:
+        if DB.collection_or_table_exists(collection_name):
             self.status_code = HTTP_CODES.NOT_FOUND
         else:
             self.collection_name = collection_name
@@ -96,7 +94,7 @@ class Basic_POST_Response (Basic_Response): # CREATE
         if self.valid_model:
             self.content = html
             try:
-                insert_to_db(self.collection_name, self.body)
+                DB.insert_to_db(self.collection_name, self.body)
                 self.status_code = HTTP_CODES.CREATED
             except Exception as e:
                 print("Internal Server Error on Post: ", e.with_traceback())
@@ -124,7 +122,7 @@ class Basic_PUT_Response (Basic_Response):
 
         self.status_code = HTTP_CODES.SUCCESS if self.valid_model else HTTP_CODES.BAD_REQUEST
 
-        if get_collection(collection_name) is None:
+        if DB.collection_or_table_exists(collection_name):
             self.status_code = HTTP_CODES.NOT_FOUND
         else:
             self.collection_name = collection_name
@@ -133,7 +131,7 @@ class Basic_PUT_Response (Basic_Response):
 
     def send(self, path: str = None):
         if self.valid_model:
-            doc = get_from_db(self.collection_name, self.query)
+            doc = DB.get_from_db(self.collection_name, self.query)
 
             print(doc)
 
@@ -141,13 +139,13 @@ class Basic_PUT_Response (Basic_Response):
 
             if doc is None:
                 try:
-                    insert_to_db(self.collection_name, self.body)
+                    DB.insert_to_db(self.collection_name, self.body)
                     self.status_code = HTTP_CODES.CREATED if path else HTTP_CODES.NO_CONTENT
                 except:
                     self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
             else:
                 try:
-                    replace_to_db(self.collection_name, self.query, self.body)
+                    DB.replace_to_db(self.collection_name, self.query, self.body)
                     self.status_code = HTTP_CODES.SUCCESS if path else HTTP_CODES.NO_CONTENT
                 except:
                     self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
@@ -164,7 +162,7 @@ class Basic_PATCH_Response (Basic_Response): # UPDATE ONLY WORKS WITH $ OPERATOR
         self.status_code = HTTP_CODES.SUCCESS if self.valid_model else HTTP_CODES.BAD_REQUEST
         self.content = b""
 
-        if get_collection(collection_name) is None:
+        if DB.collection_or_table_exists(collection_name):
             self.status_code = HTTP_CODES.NOT_FOUND
         else:
             self.collection_name = collection_name
@@ -173,14 +171,14 @@ class Basic_PATCH_Response (Basic_Response): # UPDATE ONLY WORKS WITH $ OPERATOR
         
     def send(self, path: str = None, patch_many = False):
         if self.valid_model:
-            doc = get_from_db(self.collection_name, self.query)
+            doc = DB.get_from_db(self.collection_name, self.query)
 
             self.status_code = HTTP_CODES.SUCCESS if path else HTTP_CODES.NO_CONTENT
             self.content = bytes(path, "utf-8")
 
             if doc is not None:
                 try:
-                    update_to_db(self.collection_name, self.query, self.body, patch_many)
+                    DB.update_to_db(self.collection_name, self.query, self.body, patch_many)
                 except Exception as e:
                     print(e.with_traceback())
                     self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
@@ -193,7 +191,7 @@ class Basic_DELETE_Response (Basic_Response):
             query: dict[str, Any]
 
     ):
-        self.docs = get_from_db(collection_name, query)
+        self.docs = DB.get_from_db(collection_name, query)
         self.collection_name = collection_name
         self.query = query
         self.status_code = HTTP_CODES.ACCEPTED
@@ -203,7 +201,7 @@ class Basic_DELETE_Response (Basic_Response):
         
         if self.docs is not None:
             try:
-                delete_to_db(self.collection_name, self.query, delete_many)
+                DB.delete_to_db(self.collection_name, self.query, delete_many)
                 self.status_code = HTTP_CODES.SUCCESS if success_msg else HTTP_CODES.NO_CONTENT
                 self.content = success_msg
             except:

@@ -4,8 +4,8 @@ from urllib.parse import parse_qs, urlparse
 
 from requests import HTTPError
 
-from constants import HTTP_CODES
-from response_managers import (
+from .constants import HTTP_CODES
+from .ResponseManagers import (
     Basic_DELETE_Response, 
     Basic_GET_Response, 
     Basic_PATCH_Response, 
@@ -13,7 +13,7 @@ from response_managers import (
     Basic_PUT_Response,
     Basic_Response
 )
-from utilities.request_utils import get_complete_path, get_url_variables, is_var_url
+from .utilities import get_complete_path, get_url_variables, is_var_url
 
 def find_base_for_caller(path:str, callers: list[Callable]) -> str: 
     path = path.split("?")[0]

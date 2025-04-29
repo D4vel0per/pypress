@@ -1,3 +1,14 @@
+class DB_METHODS:
+    GET = "get_from_db"
+    INSERT = "insert_to_db"
+    REPLACE = "replace_to_db"
+    UPDATE = "update_to_db"
+    DELETE = "delete_to_db"
+
+class DB_TYPES:
+    MONGO_DB = "MONGO_DB"
+    SQLITE3 = "SQLITE3"
+
 class HTTP_CODES:
     REDIRECT = 303
     SUCCESS = 200
