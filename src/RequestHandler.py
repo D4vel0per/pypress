@@ -173,5 +173,6 @@ class RequestHandler (SimpleHTTPRequestHandler):
             self.send_res(res)
             self.write_content(res.content)
 
-    def set_root (root: str):
-        RequestHandler.root = root
+    @classmethod
+    def set_root (cls, root: str):
+        cls.root = root

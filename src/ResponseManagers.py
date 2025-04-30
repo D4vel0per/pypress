@@ -5,7 +5,7 @@ from typing import Any
 from pathlib import Path
 
 from .constants import HTTP_CODES
-from .Database_Manager import DB
+from .base import DB
 from .utilities import checkModel, get_base_path, isPatchableBy
 
 import json
@@ -17,6 +17,7 @@ class Basic_Response ():
     content: bytes|NoneType
 
 class Basic_GET_Response (Basic_Response):
+    root: str
     path: str
     status_code: HTTP_CODES
     content: bytes = None
@@ -28,26 +29,28 @@ class Basic_GET_Response (Basic_Response):
 
         self.status_code = HTTP_CODES.BAD_REQUEST
         self.path = path_or_collection_name
-
     
     def redirect(self, handler: BaseHTTPRequestHandler, new_path: str):
         self.status_code = HTTP_CODES.REDIRECT
         handler.path = new_path
 
     def send_file (self, url_variables: dict[str, str] = {}):
-        path = Path(get_base_path(Path(self.path).as_posix(), url_variables))
-        print(path)
+        print(self.root, self.path)
+        base_path = get_base_path(Path(self.path).as_posix(), url_variables)
+        path = (
+            Path(self.root).joinpath(base_path) if 
+            self.root else 
+            Path(base_path)
+        )
 
         if path.exists() and path.is_absolute() and path.is_file():
-            print("exists, is absolute and is a file")
-            self.path = str(path)
+            self.path = path.as_posix()
         else:
             self.status_code = HTTP_CODES.NOT_FOUND
             
         try:
-            file = Path(self.path)
-            if file.is_file():
-                with open(str(file), "rb") as file_data:
+            if path.is_file():
+                with open(self.path, "rb") as file_data:
                     self.content = file_data.read()
                 self.status_code = HTTP_CODES.SUCCESS
 
@@ -59,12 +62,13 @@ class Basic_GET_Response (Basic_Response):
         try:
             if DB.collection_or_table_exists(self.path):
                 docs = DB.get_from_db(self.path, query)
+                print(docs)
                 if docs is not None:
                     self.content = doc_to_bytes(docs)
                     self.status_code = HTTP_CODES.SUCCESS
 
         except Exception as e:
-            print(e)
+            print(e.with_traceback(None))
             self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
         
 class Basic_POST_Response (Basic_Response): # CREATE

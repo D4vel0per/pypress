@@ -11,15 +11,17 @@ from .ResponseManagers import (
     Basic_Response
 )
 
-from .Exceptions.Server_Exceptions import *
+from .Server_Exceptions import *
 
 class Server ():
+    root: str
     def __init__(self, address: str, root_folder: Path):
-        self.session = HTTPServer(tuple(address.split(":")[0:2]), RequestHandler)
+        inet_address = address.split(":")[0:2]
+        inet_address[1] = int(inet_address[1])
+        self.session = HTTPServer(tuple(inet_address), RequestHandler)
         self.address = address
-        root = str(root_folder.as_posix())
         if root_folder.is_absolute():
-            RequestHandler.set_root(root)
+            Basic_GET_Response.root = root_folder.as_posix()
         else:
             raise InvalidRootError("Path is not absolute. Try using Path.cwd() for root_folder argument")
 
@@ -39,7 +41,6 @@ class Server ():
             path: str, 
             callback: Callable[[RequestData], Basic_GET_Response]
         ):
-        """Callback formatting: (handler: RequestHandler, query: dict[str, Any], url_variables: dict[str, str])"""
         self.CALL(path, callback, RequestHandler.get_callers)
         
 
@@ -74,7 +75,7 @@ class Server ():
     def start(self):
         print ("Starting Server...")
         if self.session:
-            print(f"Session started at http://{self.address}:{self.port}")
+            print(f"Session started at http://{self.address}")
             with self.session as Http_Server:
                 Http_Server.serve_forever()
         else:
