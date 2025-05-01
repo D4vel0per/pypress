@@ -63,9 +63,9 @@ class DB_Mongo (DB):
         if not self.is_available: return
 
         collection: Collection = self.db.get_collection(collection_name)
-        print(collection_name)
         data = doc_b64_to_obj_id(data)
         query = doc_b64_to_obj_id(query)
+        print(data, query)
 
         if update_many:
             collection.update_many(query, data)

@@ -88,7 +88,7 @@ class Basic_POST_Response (Basic_Response): # CREATE
         self.status_code = HTTP_CODES.SUCCESS if self.valid_model else HTTP_CODES.BAD_REQUEST
         self.content = b""
 
-        if DB.collection_or_table_exists(collection_name):
+        if not DB.collection_or_table_exists(collection_name):
             self.status_code = HTTP_CODES.NOT_FOUND
         else:
             self.collection_name = collection_name
@@ -101,7 +101,7 @@ class Basic_POST_Response (Basic_Response): # CREATE
                 DB.insert_to_db(self.collection_name, self.body)
                 self.status_code = HTTP_CODES.CREATED
             except Exception as e:
-                print("Internal Server Error on Post: ", e.with_traceback())
+                print("Internal Server Error on Post: ", e.with_traceback(None))
                 self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
         else:
             self.status_code = HTTP_CODES.BAD_REQUEST
@@ -126,7 +126,7 @@ class Basic_PUT_Response (Basic_Response):
 
         self.status_code = HTTP_CODES.SUCCESS if self.valid_model else HTTP_CODES.BAD_REQUEST
 
-        if DB.collection_or_table_exists(collection_name):
+        if not DB.collection_or_table_exists(collection_name):
             self.status_code = HTTP_CODES.NOT_FOUND
         else:
             self.collection_name = collection_name
@@ -139,7 +139,7 @@ class Basic_PUT_Response (Basic_Response):
 
             print(doc)
 
-            self.content = bytes(path, "utf-8")
+            self.content = bytes(path, "utf-8") if path else b""
 
             if doc is None:
                 try:
@@ -166,7 +166,7 @@ class Basic_PATCH_Response (Basic_Response): # UPDATE ONLY WORKS WITH $ OPERATOR
         self.status_code = HTTP_CODES.SUCCESS if self.valid_model else HTTP_CODES.BAD_REQUEST
         self.content = b""
 
-        if DB.collection_or_table_exists(collection_name):
+        if not DB.collection_or_table_exists(collection_name):
             self.status_code = HTTP_CODES.NOT_FOUND
         else:
             self.collection_name = collection_name
@@ -178,13 +178,13 @@ class Basic_PATCH_Response (Basic_Response): # UPDATE ONLY WORKS WITH $ OPERATOR
             doc = DB.get_from_db(self.collection_name, self.query)
 
             self.status_code = HTTP_CODES.SUCCESS if path else HTTP_CODES.NO_CONTENT
-            self.content = bytes(path, "utf-8")
+            self.content = bytes(path, "utf-8") if path else b""
 
             if doc is not None:
                 try:
                     DB.update_to_db(self.collection_name, self.query, self.body, patch_many)
                 except Exception as e:
-                    print(e.with_traceback())
+                    print(e.with_traceback(None))
                     self.status_code = HTTP_CODES.INTERNAL_SERVER_ERROR
 
 
