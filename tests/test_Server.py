@@ -1,11 +1,11 @@
 import json
 from pathlib import Path
 import unittest
-from src import Server
+from src.PyPress import Server
 
-from src.mongo import DB_Mongo
-from src.RequestHandler import RequestData
-from src.ResponseManagers import Basic_DELETE_Response, Basic_GET_Response, Basic_PATCH_Response, Basic_POST_Response, Basic_PUT_Response
+from src.PyPress.mongo import DB_Mongo
+from src.PyPress.RequestHandler import RequestData
+from src.PyPress.ResponseManagers import Basic_DELETE_Response, Basic_GET_Response, Basic_PATCH_Response, Basic_POST_Response, Basic_PUT_Response
 
 class Server_Mongo_Test (unittest.TestCase):
     def test_server_initialized_correctly (self):

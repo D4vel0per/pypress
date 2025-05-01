@@ -156,7 +156,7 @@ def PressDB (cls: DB):
     DB.replace_to_db = validate_method(DB.replace_to_db, cls.replace_to_db)
     return cls
 '''
-def PressDB (cls: DB):
+def PressDB (cls):
     DB.delete_to_db = classmethod(cls.delete_to_db)
     DB.insert_to_db = classmethod(cls.insert_to_db)
     DB.get_from_db = classmethod(cls.get_from_db)

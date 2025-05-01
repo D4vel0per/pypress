@@ -1,3 +1,3 @@
-# `pypress`
+# `PyPress`
 
-`pypress` is a package to create your python HTTP server with no effort
+`PyPress` is a package to create your python HTTP server with no effort
