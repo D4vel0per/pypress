@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any
 import unittest
 
 from src.PyPress import (
@@ -16,7 +17,7 @@ from src.PyPress import (
 class Server_Mongo_Test (unittest.TestCase):
     def test_server_initialized_correctly (self):
         my_server = Server("localhost:8080", Path.cwd())
-        DB_Mongo(
+        db = DB_Mongo(
             "mongodb+srv://D4veloper:pypressdb0608@pypress.1btky.mongodb.net/?retryWrites=true&w=majority&appName=PyPress", 
             "PyPress"
         )
@@ -39,21 +40,14 @@ class Server_Mongo_Test (unittest.TestCase):
                 "$set": data
             }
 
+            docs = db.get_from_db("set", data) or []
+
             res = Basic_DELETE_Response("set", data)
-            '''
-            content = ("""
-                    <html>
-                        <body>
-                            <h1>POSTED:</h1>
-                            <h2>{name}, {age}</h2>
-                            <p>{description}</p>
-                        </body>
-                    </html>
-                """
-                .format(**data).strip())
-            '''
             
-            res.send(b"Deleted succesfully", True)
+            for doc in docs[:-1]:
+                content = res.content or b"Successfully Deleted:\n"
+                bname = bytes(doc["name"] + "\n", "utf-8")
+                res.send(content + bname)
 
             return res
 
