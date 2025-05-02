@@ -1,165 +1,170 @@
-import re
-from types import NoneType
+from pymongo import MongoClient
+from sqlite3 import Connection, Cursor
+from pymongo.database import Database
+from pymongo.collection import Collection
 from typing import Any, Callable
 
-from pymongo import MongoClient
-from pymongo.database import Collection, Database
-
-from sqlite3 import Connection, Cursor
-from .constants import DB_METHODS
-
-class DB ():
-    uri: str
-    is_available: bool
-    connection: MongoClient | Connection
-    db: Database | Cursor
-    """Connection types available in PyPress, MongoClient for Mongodb and Connection for SQLite (not released yet)"""
+class DB:
+    """
+    A database handler class supporting MongoDB and SQLite (not yet implemented).
+    
+    Attributes:
+        uri (str): The database connection URI.
+        is_available (bool): Indicates whether the database is accessible.
+        connection (MongoClient | Connection): Represents the database connection.
+        db (Database | Cursor): The database instance.
+    """
 
     def __init__(self, uri: str, is_available: bool, connection: MongoClient | Connection, db: Database | Cursor):
+        """
+        Initializes the DB class with connection details.
+
+        Args:
+            uri (str): The connection URI.
+            is_available (bool): Whether the database is available.
+            connection (MongoClient | Connection): Database connection instance.
+            db (Database | Cursor): The database object.
+        """
         DB.uri = uri
         DB.is_available = is_available
         DB.connection = connection
         DB.db = db
 
     @classmethod
-    def get_collection_or_table(
-        self,
-        collection_name:str
-    ) -> Collection|Any|None: 
-        """Collection for Mongodb, Any for sqlite3 (not implemented) and None for not found cases"""
+    def get_collection_or_table(self, collection_name: str) -> Collection | Any | None:
+        """
+        Retrieves a MongoDB collection or SQLite table.
+        
+        Args:
+            collection_name (str): Name of the collection or table.
+        
+        Returns:
+            ### `Collection | Any | None`
+            
+            A collection or table depending on the type of database you're working with:
+            - MongoDB: Collection
+            - SQLite: Any (Table structure)
+            - Not Found: None
+        """
+        pass
 
     @classmethod
-    def collection_or_table_exists(
-        self,
-        collection_name:str
-    ) -> bool: 
-        """Returns True if the Mongodb Collection or the SQLite3 table exists, otherwise, returns False"""
+    def collection_or_table_exists(self, collection_name: str) -> bool:
+        """
+        Checks if a MongoDB collection or SQLite table exists.
+
+        Args:
+            collection_name (str): Name of the collection or table.
+        
+        Returns:
+            ### `bool`
+        """
+        pass
 
     @classmethod
-    def insert_to_db(
-            self, 
-            collection_name:str, 
-            data: dict|list[dict]
-    ) -> NoneType: pass
+    def insert_to_db(self, collection_name: str, data: dict | list[dict]) -> None:
+        """
+        Inserts data into the specified collection or table.
+
+        Args:
+            collection_name (str): Target collection or table name.
+            data (dict | list[dict]): Data to insert.
+        
+        Returns:
+            ### `None`
+        """
+        pass
+
+    @classmethod
+    def replace_to_db(self, collection_name: str, query: dict[str, Any], data: dict[str, Any] | list) -> None:
+        """
+        Replaces a document or entry in the database.
+
+        Args:
+            collection_name (str): Target collection or table.
+            query (dict[str, Any]): Query filter.
+            data (dict[str, Any] | list): New data to replace.
+        
+        Returns:
+            ### `None`
+        """
+        pass
+
+    @classmethod
+    def update_to_db(self, collection_name: str, query: dict[str, Any], data: dict[str, Any], update_many: bool = False) -> None:
+        """
+        Updates existing documents or entries in the database.
+
+        Args:
+            collection_name (str): Target collection or table.
+            query (dict[str, Any]): Query filter.
+            data (dict[str, Any]): Updated data.
+            update_many (bool | None): Whether to update multiple entries. Defaults to False.
+        
+        Returns:
+            ### `None`
+        """
+        pass
+
+    @classmethod
+    def delete_to_db(self, collection_name: str, query: dict[str, Any], delete_many: bool = False) -> None:
+        """
+        Deletes documents or entries from the database.
+
+        Args:
+            collection_name (str): Target collection or table.
+            query (dict[str, Any]): Query filter for deletion.
+            delete_many (bool | None): Whether to delete multiple entries. Defaults to False.
+        
+        Returns:
+            ### `None`
+        """
+        pass
+
+    @classmethod
+    def get_from_db(self, collection_name: str, query: dict[str, Any] = {}) -> list[dict[str, Any]] | None:
+        """
+        Retrieves data from the database based on a query.
+
+        Args:
+            collection_name (str): Target collection or table.
+            query (dict[str, Any] | None): Query filter for retrieval. Defaults to an empty dict.
+        
+        Returns:
+            ### `list[dict[str, Any]] | None`
+
+            The return type can represent the response status:
+            - Success: list[dict[str, Any]]
+            - Not Found: None
+        """
+        pass
+
+def PressDB(cls):
+    """
+    A decorator that integrates database-specific methods into the main `DB` class.
+
+    Args:
+        cls (Any): Should be a `DB` subclass but it isn't mandatory, just recommended.
+
+    Returns:
+        ### `Any`
+        
+        The original decorated subclass with its methods applied to `DB`.
+    """
     
-    @classmethod
-    def replace_to_db(
-            self, 
-            collection_name:str, 
-            query:dict[str, Any], data: dict[str, Any]|list
-    ) -> NoneType: pass
+    try:
+        delete_to_db = classmethod(cls.delete_to_db)
+        insert_to_db = classmethod(cls.insert_to_db)
+        get_from_db = classmethod(cls.get_from_db)
+        update_to_db = classmethod(cls.update_to_db)
+        replace_to_db = classmethod(cls.replace_to_db)
 
-    @classmethod
-    def update_to_db(
-            self, 
-            collection_name:str, 
-            query:dict[str, Any], 
-            data: dict[str, Any], 
-            update_many: bool = False
-    ) -> NoneType: pass
+        DB.delete_to_db = delete_to_db
+        DB.insert_to_db = insert_to_db
+        DB.get_from_db = get_from_db
+        DB.replace_to_db = replace_to_db
+        DB.update_to_db = update_to_db
+    except:
+        pass
 
-    @classmethod
-    def delete_to_db(
-            self, 
-            collection_name:str, 
-            query:dict[str, Any], 
-            delete_many: bool = False
-    ) -> NoneType: pass
-
-    @classmethod
-    def get_from_db(
-            self, 
-            collection_name:str, 
-            query: dict[str, Any]={}
-    ) -> list[dict[str, Any]] | NoneType: pass
-
-def get_method (method: Callable):
-    print("Annotations are equal: ", method.__annotations__, DB.get_from_db.__annotations__)
-    def wrapper (
-        self: DB,
-        collection_name: str,
-        query: dict[str, Any] = {}
-    ):
-         if type(method) is type(DB.get_from_db):
-            DB.get_from_db = classmethod(self.get_from_db)
-            return DB.get_from_db(collection_name, query)
-         
-    return wrapper
-
-def insert_method (method: Callable):
-    print("Annotations are equal: ", method.__annotations__, DB.insert_to_db.__annotations__)
-    def wrapper (
-        self: DB,
-        collection_name: str,
-        data: dict | list[dict]
-    ):
-         if type(method) is type(DB.insert_to_db):
-            DB.insert_to_db = classmethod(self.insert_to_db)
-            return DB.insert_to_db(collection_name, data)
-         
-    return wrapper
-
-def replace_method (method: Callable):
-    print("Annotations are equal: ", method.__annotations__, DB.replace_to_db.__annotations__)
-    def wrapper (
-        self: DB,
-        collection_name: str,
-        query: dict[str, Any],
-        data: dict[str, Any] | list
-    ):
-         if type(method) is type(DB.replace_to_db):
-            DB.replace_to_db = classmethod(self.replace_to_db)
-            return DB.replace_to_db(collection_name, query, data)
-         
-    return wrapper
-    
-def update_method (method: Callable):
-    print("Annotations are equal: ", method.__annotations__, DB.update_to_db.__annotations__)
-    def wrapper (
-        self: DB, 
-        collection_name: str,
-        query: dict[str, Any],
-        data: dict[str, Any],
-        update_many: bool = False
-    ):
-        if type(method) is type(DB.update_to_db):
-            DB.update_to_db = classmethod(self.update_to_db)
-            return DB.update_to_db(collection_name, query, data, update_many)
-         
-    return wrapper
-
-def delete_method (method: Callable):
-    print("Annotations are equal: ", classmethod(method).__dict__, DB.delete_to_db.__annotations__)
-    def wrapper (
-        self: DB,
-        collection_name: str,
-        query: dict[str, Any],
-        delete_many: bool = False
-    ):
-        if type(method) is type(DB.delete_to_db):
-            DB.delete_to_db = classmethod(self.delete_to_db)
-            return DB.delete_to_db(collection_name, query, delete_many)
-         
-    return wrapper
-'''
-def validate_method (original: Callable, new): # Solve this later
-    print("Validate: ", original.__annotations__, new.__dir__())
-    if original.__annotations__ == new.__annotations__:
-        return classmethod(new)
-    return original
-
-def PressDB (cls: DB):
-    DB.delete_to_db = validate_method(DB.delete_to_db, cls.delete_to_db)
-    DB.insert_to_db = validate_method(DB.insert_to_db, cls.insert_to_db)
-    DB.get_from_db = validate_method(DB.get_from_db, cls.get_from_db)
-    DB.update_to_db = validate_method(DB.update_to_db, cls.update_to_db)
-    DB.replace_to_db = validate_method(DB.replace_to_db, cls.replace_to_db)
-    return cls
-'''
-def PressDB (cls):
-    DB.delete_to_db = classmethod(cls.delete_to_db)
-    DB.insert_to_db = classmethod(cls.insert_to_db)
-    DB.get_from_db = classmethod(cls.get_from_db)
-    DB.update_to_db = classmethod(cls.update_to_db)
-    DB.replace_to_db = classmethod(cls.replace_to_db)
     return cls

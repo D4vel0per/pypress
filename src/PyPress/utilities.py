@@ -35,7 +35,7 @@ def get_url_variables(base_path:str, actual_path:str):
 
     return result
 
-def get_complete_path(handler: SimpleHTTPRequestHandler):
+def get_complete_path(handler: type[SimpleHTTPRequestHandler]):
     host = handler.headers["Host"]
     base = f"http://{host}{handler.path}"
     return base
@@ -67,7 +67,7 @@ def get_base_path (actual_path: str, url_variables: dict[str, str]):
     for key, value in url_variables.items():
         base_path = actual_path.replace(value, key)
 
-    base_path = base_path.split("?")[0] # Just in case it has a query
+    base_path = base_path.split("?")[0]
 
     return base_path.removeprefix("/")
 

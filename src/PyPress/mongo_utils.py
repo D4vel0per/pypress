@@ -1,7 +1,6 @@
 from base64 import b64decode, b64encode
 from bson import ObjectId
 
-
 def doc_id_to_b64(doc: dict|list[dict]):
         result = {} if type(doc) is list else { **doc }
         if type(doc) is list:
